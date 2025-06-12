@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stacker Game</title>
+  <style>
+    canvas {
+      background: #000;
+      display: block;
+      margin: 0 auto;
+      margin-top: 20px;
+    }
+    body {
+      text-align: center;
+      font-family: sans-serif;
+      color: white;
+      background-color: #111;
+    }
+  </style>
+</head>
+<body>
+  <h1>Stacker Game</h1>
+  <canvas id="game" width="280" height="800"></canvas>
+  <p>Press any key to stack</p>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const GRID_SIZE = 40;
+    const WIDTH = 7;
+    const HEIGHT = 20;
+    const COLORS = ["orange", "yellow", "limegreen"];
+    const BLOCK_COLOR = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+    let currentLine = HEIGHT - 1;
+    let direction = "right";
+    let speed = 4;
+    let frame = 0;
+    let score = 0;
+    let gameOver = false;
+
+    let frozen = new Set();
+
+    let active = Array.from({ length: 5 }, (_, i) => ({
+      x: i,
+      y: currentLine,
+    }));
+
+    function drawGrid() {
+      ctx.strokeStyle = "#222";
+      for (let x = 0; x <= WIDTH; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * GRID_SIZE, 0);
+        ctx.lineTo(x * GRID_SIZE, HEIGHT * GRID_SIZE);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= HEIGHT; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * GRID_SIZE);
+        ctx.lineTo(WIDTH * GRID_SIZE, y * GRID_SIZE);
+        ctx.stroke();
+      }
+    }
+
+    function drawBlock(x, y, color = BLOCK_COLOR) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      for (let key of frozen) {
+        const [x, y] = key.split(",").map(Number);
+        drawBlock(x, y);
+      }
+
+      for (let b of active) {
+        drawBlock(b.x, b.y);
+      }
+
+      if (gameOver) {
+        ctx.fillStyle = "white";
+        ctx.font = "30px sans-serif";
+        ctx.fillText("Game over!", 40, 200);
+        ctx.fillText("Your score: " + score, 30, 250);
+      }
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      if (frame % Math.floor(60 / speed) === 0) {
+        if (direction === "right") {
+          if (active[active.length - 1].x + 1 < WIDTH) {
+            active.forEach(b => b.x++);
+          } else {
+            direction = "left";
+          }
+        } else {
+          if (active[0].x > 0) {
+            active.forEach(b => b.x--);
+          } else {
+            direction = "right";
+          }
+        }
+      }
+
+      frame++;
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    document.addEventListener("keydown", () => {
+      if (gameOver) return;
+
+      currentLine--;
+      speed += 0.5;
+
+      let nextActive = [];
+
+      for (let b of active) {
+        const belowKey = `${b.x},${b.y + 1}`;
+        const key = `${b.x},${b.y}`;
+        if (currentLine === HEIGHT - 2 || frozen.has(belowKey)) {
+          frozen.add(key);
+        }
+      }
+
+      active = [];
+
+      for (let x = 0; x < WIDTH; x++) {
+        const key = `${x},${currentLine + 1}`;
+        if (frozen.has(key)) {
+          active.push({ x, y: currentLine });
+        }
+      }
+
+      score = frozen.size;
+
+      if (active.length === 0 || currentLine < 0) {
+        gameOver = true;
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
