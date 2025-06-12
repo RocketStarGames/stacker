@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stacker Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 20px 0 10px;
+    }
+
+    canvas {
+      display: block;
+      margin: auto;
+      background: #000;
+      border: 2px solid #333;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      padding: 20px 30px;
+      border-radius: 10px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #overlay h2 {
+      margin-bottom: 10px;
+    }
+
+    #overlay button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: limegreen;
+      color: black;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Stacker Game</h1>
+  <canvas id="game" width="280" height="800"></canvas>
+
+  <div id="overlay">
+    <h2 id="message">Press to Start</h2>
+    <button id="startBtn">Play</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("overlay");
+    const startBtn = document.getElementById("startBtn");
+    const message = document.getElementById("message");
+
+    const GRID_SIZE = 40;
+    const WIDTH = 7;
+    const HEIGHT = 20;
+    const COLORS = ["orange", "yellow", "limegreen"];
+
+    let BLOCK_COLOR, currentLine, direction, speed, frame, score;
+    let frozen, active;
+    let running = false;
+    let gameOver = false;
+
+    function initGame() {
+      BLOCK_COLOR = COLORS[Math.floor(Math.random() * COLORS.length)];
+      currentLine = HEIGHT - 1;
+      direction = "right";
+      speed = 4;
+      frame = 0;
+      score = 0;
+      gameOver = false;
+      running = true;
+      frozen = new Set();
+      active = Array.from({ length: 5 }, (_, i) => ({ x: i, y: currentLine }));
+      overlay.style.display = "none";
+      draw();
+      update();
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = "#222";
+      for (let x = 0; x <= WIDTH; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * GRID_SIZE, 0);
+        ctx.lineTo(x * GRID_SIZE, HEIGHT * GRID_SIZE);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= HEIGHT; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * GRID_SIZE);
+        ctx.lineTo(WIDTH * GRID_SIZE, y * GRID_SIZE);
+        ctx.stroke();
+      }
+    }
+
+    function drawBlock(x, y, color = BLOCK_COLOR) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      for (let key of frozen) {
+        const [x, y] = key.split(",").map(Number);
+        drawBlock(x, y);
+      }
+
+      for (let b of active) {
+        drawBlock(b.x, b.y);
+      }
+    }
+
+    function update() {
+      if (!running || gameOver) return;
+
+      if (frame % Math.floor(60 / speed) === 0) {
+        if (direction === "right") {
+          if (active[active.length - 1].x + 1 < WIDTH) {
+            active.forEach(b => b.x++);
+          } else {
+            direction = "left";
+          }
+        } else {
+          if (active[0].x > 0) {
+            active.forEach(b => b.x--);
+          } else {
+            direction = "right";
+          }
+        }
+      }
+
+      frame++;
+      draw();
+
+      if (!gameOver) {
+        requestAnimationFrame(update);
+      }
+    }
+
+    function checkGameOver() {
+      if (active.length === 0 || currentLine < 0) {
+        gameOver = true;
+        running = false;
+        draw();
+        message.textContent = "Game Over! Your score: " + score;
+        startBtn.textContent = "Play Again";
+        overlay.style.display = "flex";
+      }
+    }
+
+    document.addEventListener("keydown", () => {
+      if (!running || gameOver) return;
+
+      currentLine--;
+      speed += 0.5;
+
+      for (let b of active) {
+        const below = `${b.x},${b.y + 1}`;
+        const current = `${b.x},${b.y}`;
+        if (currentLine === HEIGHT - 2 || frozen.has(below)) {
+          frozen.add(current);
+        }
+      }
+
+      active = [];
+      for (let x = 0; x < WIDTH; x++) {
+        const below = `${x},${currentLine + 1}`;
+        if (frozen.has(below)) {
+          active.push({ x, y: currentLine });
+        }
+      }
+
+      score = frozen.size;
+      checkGameOver();
+    });
+
+    startBtn.addEventListener("click", () => {
+      initGame();
+    });
+
+    // Show overlay on initial load
+    overlay.style.display = "flex";
+    message.textContent = "Press Play to Start";
+    startBtn.textContent = "Play";
+  </script>
+</body>
+</html>
