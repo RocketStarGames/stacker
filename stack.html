@@ -4,48 +4,92 @@
   <meta charset="UTF-8">
   <title>Stacker Game</title>
   <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      margin: 0;
+      overflow: hidden;
+    }
+
     canvas {
       background: #000;
       display: block;
-      margin: 0 auto;
-      margin-top: 20px;
+      margin: 20px auto;
     }
-    body {
-      text-align: center;
-      font-family: sans-serif;
+
+    #overlay {
+      position: absolute;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
       color: white;
-      background-color: #111;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    #overlay button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: limegreen;
+      color: black;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #overlay h2 {
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
   <h1>Stacker Game</h1>
   <canvas id="game" width="280" height="800"></canvas>
-  <p>Press any key to stack</p>
+
+  <div id="overlay">
+    <h2 id="message">Press to Start</h2>
+    <button id="startBtn">Play</button>
+  </div>
 
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("overlay");
+    const startBtn = document.getElementById("startBtn");
+    const message = document.getElementById("message");
 
     const GRID_SIZE = 40;
     const WIDTH = 7;
     const HEIGHT = 20;
     const COLORS = ["orange", "yellow", "limegreen"];
-    const BLOCK_COLOR = COLORS[Math.floor(Math.random() * COLORS.length)];
 
-    let currentLine = HEIGHT - 1;
-    let direction = "right";
-    let speed = 4;
-    let frame = 0;
-    let score = 0;
+    let BLOCK_COLOR, currentLine, direction, speed, frame, score;
+    let frozen, active;
+    let running = false;
     let gameOver = false;
 
-    let frozen = new Set();
-
-    let active = Array.from({ length: 5 }, (_, i) => ({
-      x: i,
-      y: currentLine,
-    }));
+    function initGame() {
+      BLOCK_COLOR = COLORS[Math.floor(Math.random() * COLORS.length)];
+      currentLine = HEIGHT - 1;
+      direction = "right";
+      speed = 4;
+      frame = 0;
+      score = 0;
+      gameOver = false;
+      running = true;
+      frozen = new Set();
+      active = Array.from({ length: 5 }, (_, i) => ({ x: i, y: currentLine }));
+      overlay.style.display = "none";
+      draw();
+      update();
+    }
 
     function drawGrid() {
       ctx.strokeStyle = "#222";
@@ -80,17 +124,10 @@
       for (let b of active) {
         drawBlock(b.x, b.y);
       }
-
-      if (gameOver) {
-        ctx.fillStyle = "white";
-        ctx.font = "30px sans-serif";
-        ctx.fillText("Game over!", 40, 200);
-        ctx.fillText("Your score: " + score, 30, 250);
-      }
     }
 
     function update() {
-      if (gameOver) return;
+      if (!running || gameOver) return;
 
       if (frame % Math.floor(60 / speed) === 0) {
         if (direction === "right") {
@@ -110,42 +147,57 @@
 
       frame++;
       draw();
-      requestAnimationFrame(update);
+
+      if (!gameOver) {
+        requestAnimationFrame(update);
+      }
+    }
+
+    function checkGameOver() {
+      if (active.length === 0 || currentLine < 0) {
+        gameOver = true;
+        running = false;
+        draw(); // draw final state
+        message.textContent = "Game Over! Your score: " + score;
+        startBtn.textContent = "Play Again";
+        overlay.style.display = "flex";
+      }
     }
 
     document.addEventListener("keydown", () => {
-      if (gameOver) return;
+      if (!running || gameOver) return;
 
       currentLine--;
       speed += 0.5;
 
-      let nextActive = [];
-
       for (let b of active) {
-        const belowKey = `${b.x},${b.y + 1}`;
-        const key = `${b.x},${b.y}`;
-        if (currentLine === HEIGHT - 2 || frozen.has(belowKey)) {
-          frozen.add(key);
+        const below = `${b.x},${b.y + 1}`;
+        const current = `${b.x},${b.y}`;
+        if (currentLine === HEIGHT - 2 || frozen.has(below)) {
+          frozen.add(current);
         }
       }
 
       active = [];
-
       for (let x = 0; x < WIDTH; x++) {
-        const key = `${x},${currentLine + 1}`;
-        if (frozen.has(key)) {
+        const below = `${x},${currentLine + 1}`;
+        if (frozen.has(below)) {
           active.push({ x, y: currentLine });
         }
       }
 
       score = frozen.size;
-
-      if (active.length === 0 || currentLine < 0) {
-        gameOver = true;
-      }
+      checkGameOver();
     });
 
-    update();
+    startBtn.addEventListener("click", () => {
+      initGame();
+    });
+
+    // Show start overlay at load
+    overlay.style.display = "flex";
+    message.textContent = "Press Play to Start";
+    startBtn.textContent = "Play";
   </script>
 </body>
 </html>
